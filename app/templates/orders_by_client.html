@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="h4 mb-1">Pedidos de {{ client.full_name() }}</h1>
+    <div class="text-muted">
+      {{ client.email }}{% if client.phone %} · {{ client.phone }}{% endif %}{% if client.company %} · {{ client.company }}{% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.list_clients') }}">Volver a clientes</a>
+    <a class="btn btn-primary" href="{{ url_for('orders.create_order', client_id=client.id) }}">Nuevo pedido</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Estado</th>
+        <th>Total (Q)</th>
+        <th>Creado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in pagination.items %}
+        <tr>
+          <td>{{ o.id }}</td>
+          <td>{{ o.status|capitalize }}</td>
+          <td>{{ '%.2f'|format(o.total) }}</td>
+          <td>{{ o.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('orders.edit_order', order_id=o.id) }}">Editar</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-center text-muted">Este cliente aún no tiene pedidos</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav>
+  <ul class="pagination">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('orders.client_orders', client_id=client.id, page=pagination.prev_num) }}">Anterior</a>
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('orders.order_invoice_pdf', order_id=o.id) }}">PDF</a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('orders.client_orders', client_id=client.id, page=p) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('orders.client_orders', client_id=client.id, page=pagination.next_num) }}">Siguiente</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

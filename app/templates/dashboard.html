@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h3">Dashboard</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('main.list_clients') }}">Clientes</a>
+    <a class="btn btn-primary" href="{{ url_for('orders.list_orders') }}">Pedidos</a>
+  </div>
+</div>
+
+<!-- Tarjetas -->
+<div class="row g-3">
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted small">Clientes</div>
+      <div class="fs-4 fw-bold">{{ total_clientes|default(0) }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted small">Pedidos</div>
+      <div class="fs-4 fw-bold">{{ total_pedidos|default(0) }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted small">Pendientes</div>
+      <div class="fs-4 fw-bold">{{ total_pendientes|default(0) }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card shadow-sm"><div class="card-body">
+      <div class="text-muted small">Ingresos Totales (Q)</div>
+      <div class="fs-4 fw-bold">{{ '%.2f'|format(total_ingresos|default(0.0)) }}</div>
+    </div></div>
+  </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row g-3 mt-1">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Ingresos últimos 30 días</div>
+        <div class="chart-wrap">
+          <canvas id="chart30"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Ingresos por mes</div>
+        <div class="chart-wrap">
+          <canvas id="chartMes"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top productos más vendidos -->
+<div class="row g-3 mt-1">
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="fw-semibold mb-2">Top productos por cantidad</div>
+        <div class="chart-wrap">
+          <canvas id="chartTopProd"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  // 30 días
+  (function () {
+    const el = document.getElementById('chart30'); if (!el) return;
+    new Chart(el.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: {{ labels_30|default([])|tojson }},
+        datasets: [{ label: 'Ingresos (Q)', data: {{ data_30|default([])|tojson }} }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+  })();
+
+  // por mes
+  (function () {
+    const el = document.getElementById('chartMes'); if (!el) return;
+    new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: {{ labels_mes|default([])|tojson }},
+        datasets: [{ label: 'Ingresos (Q)', data: {{ data_mes|default([])|tojson }} }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+    });
+  })();
+
+  // Top productos (barras horizontales)
+  (function () {
+    const el = document.getElementById('chartTopProd'); if (!el) return;
+    new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: {{ labels_top|default([])|tojson }},
+        datasets: [{
+          label: 'Cantidad vendida',
+          data: {{ data_qty_top|default([])|tojson }},
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true },
+          tooltip: { callbacks: { label: (ctx) => ` ${Number(ctx.raw ?? 0).toFixed(2)} uds` } }
+        },
+        scales: { x: { beginAtZero: true } }
+      }
+    });
+  })();
+</script>
+
+<style>
+  /* altura agradable para los gráficos */
+  #chart30, #chartMes, #chartTopProd { min-height: 260px; }
+  .chart-wrap { position: relative; min-height: 260px; }
+</style>
+{% endblock %}

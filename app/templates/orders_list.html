@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h3">Pedidos</h1>
+  <div class="d-flex gap-2">
+    <form class="d-flex" method="get">
+      <select class="form-select me-2" name="status">
+        <option value="">Todos</option>
+        {% for s in ['pendiente','en_proceso','enviado','entregado','cancelado'] %}
+          <option value="{{ s }}" {% if status==s %}selected{% endif %}>{{ s|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <input class="form-control me-2" type="search" placeholder="Buscar cliente..." name="q" value="{{ q }}">
+      <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+    </form>
+    <a class="btn btn-primary" href="{{ url_for('orders.create_order') }}">Nuevo Pedido</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Status</th>
+        <th>Total (Q)</th>
+        <th>Creado</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in pagination.items %}
+        <tr>
+          <td>{{ o.id }}</td>
+          <td>{{ o.client.full_name() }}</td>
+          <td>{{ o.status|capitalize }}</td>
+          <td>{{ '%.2f'|format(o.total) }}</td>
+          <td>{{ o.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td class="d-flex flex-wrap gap-1">
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('orders.edit_order', order_id=o.id) }}">Editar</a>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('orders.order_invoice_pdf', order_id=o.id) }}">PDF</a>
+            <a class="btn btn-sm btn-outline-success" href="{{ url_for('payments.order_payments', order_id=o.id) }}">Pagos</a>
+            <a class="btn btn-sm btn-outline-success" href="{{ url_for('followups.new_followup', order_id=o.id, client_id=o.client_id) }}">Seguimiento</a>
+            <form method="post" action="{{ url_for('orders.delete_order', order_id=o.id) }}" onsubmit="return confirm('¿Estás seguro de eliminar el pedido #{{ o.id }}?');">
+              <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-center text-muted">Sin pedidos</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav>
+  <ul class="pagination">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('orders.list_orders', q=q, status=status, page=pagination.prev_num) }}">Anterior</a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('orders.list_orders', q=q, status=status, page=p) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('orders.list_orders', q=q, status=status, page=pagination.next_num) }}">Siguiente</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

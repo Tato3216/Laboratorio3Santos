@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="h3">{{ 'Editar' if order else 'Nuevo' }} pedido</h1>
+
+<form method="post" class="mt-3">
+  <!-- Datos del pedido -->
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label">Cliente</label>
+      <select name="client_id" class="form-select" required>
+        <option value="">— Seleccionar —</option>
+        {% for c in clients %}
+          {% set selected_id = (order.client_id if order else (default_client_id or None)) %}
+          <option value="{{ c.id }}" {% if selected_id==c.id %}selected{% endif %}>
+            {{ c.full_name() }} — {{ c.email }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-6">
+      <label class="form-label">Estado</label>
+      {% set current_status = order.status if order else 'pendiente' %}
+      <select name="status" class="form-select">
+        {% for s in ['pendiente','en_proceso','enviado','entregado','cancelado'] %}
+          <option value="{{ s }}" {% if current_status==s %}selected{% endif %}>{{ s|capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-12">
+      <label class="form-label">Notas</label>
+      <textarea name="notes" rows="3" class="form-control">{{ order.notes if order else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- Ítems -->
+  <div class="card mt-4">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <span>Ítems del pedido</span>
+      <button type="button" id="btn-add" class="btn btn-sm btn-outline-secondary">Agregar ítem</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="width:24%">Producto</th>
+            <th>Descripción</th>
+            <th style="width:10%">Cant.</th>
+            <th style="width:14%">P. Unitario (Q)</th>
+            <th style="width:12%" class="text-end">Importe (Q)</th>
+            <th style="width:6%"></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          <!-- Fila plantilla (clonada por JS) -->
+          <tr class="item-row d-none" id="row-template">
+            <td>
+              <select class="form-select item-product">
+                <option value="">— Seleccionar —</option>
+              </select>
+              <input type="hidden" name="item_product_id[]">
+            </td>
+            <td><input name="item_description[]" class="form-control" placeholder="Descripción del ítem"></td>
+            <td><input name="item_qty[]" type="number" step="0.01" min="0" class="form-control" value="1.00" inputmode="decimal"></td>
+            <td><input name="item_price[]" type="number" step="0.01" min="0" class="form-control" value="0.00" inputmode="decimal"></td>
+            <td class="item-amount text-end">0.00</td>
+            <td class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-danger btn-del" title="Eliminar">✕</button>
+            </td>
+          </tr>
+
+          {% if order and order.items %}
+            {% for it in order.items %}
+              <tr class="item-row">
+                <td>
+                  <select class="form-select item-product" data-selected="{{ it.product_id or '' }}">
+                    <option value="">— Seleccionar —</option>
+                  </select>
+                  <input type="hidden" name="item_product_id[]" value="{{ it.product_id or '' }}">
+                </td>
+                <td><input name="item_description[]" class="form-control" value="{{ it.description }}"></td>
+                <td><input name="item_qty[]" type="number" step="0.01" min="0" class="form-control" value="{{ '%.2f'|format(it.quantity) }}" inputmode="decimal"></td>
+                <td><input name="item_price[]" type="number" step="0.01" min="0" class="form-control" value="{{ '%.2f'|format(it.unit_price) }}" inputmode="decimal"></td>
+                <td class="item-amount text-end">0.00</td>
+                <td class="text-end">
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-del" title="Eliminar">✕</button>
+                </td>
+              </tr>
+            {% endfor %}
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="4" class="text-end">TOTAL (Q)</th>
+            <th class="text-end" id="grand-total">0.00</th>
+            <th></th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt-3 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('orders.list_orders') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+let PRODUCTS = [];
+
+// --- Utilidades ---
+function recalcRow(tr){
+  const q  = parseFloat(tr.querySelector('input[name="item_qty[]"]')?.value || 0) || 0;
+  const pu = parseFloat(tr.querySelector('input[name="item_price[]"]')?.value || 0) || 0;
+  const cell = tr.querySelector('.item-amount');
+  if (cell) cell.textContent = (q * pu).toFixed(2);
+}
+
+function recalcAll(){
+  let total = 0;
+  document.querySelectorAll('#items-body .item-row:not(#row-template)').forEach(tr => {
+    recalcRow(tr);
+    total += parseFloat(tr.querySelector('.item-amount')?.textContent || '0') || 0;
+  });
+  const g = document.getElementById('grand-total');
+  if (g) g.textContent = total.toFixed(2);
+}
+
+function fillSelect(selectEl, selectedId){
+  const selId = selectedId ? parseInt(selectedId) : null;
+  const prev  = selectEl.value;
+  selectEl.innerHTML = '<option value="">— Seleccionar —</option>';
+  PRODUCTS.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = (p.sku ? (p.sku + ' — ') : '') + p.name + ' (Q ' + Number(p.price).toFixed(2) + ')';
+    if (selId && p.id === selId) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+  if (!selId && prev) selectEl.value = prev;
+}
+
+// Enlaza eventos a UNA fila (sirve para filas existentes y nuevas)
+function bindRow(row){
+  const sel = row.querySelector('.item-product');
+  const hid = row.querySelector('input[name="item_product_id[]"]');
+  const desc = row.querySelector('input[name="item_description[]"]');
+  const qty  = row.querySelector('input[name="item_qty[]"]');
+  const prc  = row.querySelector('input[name="item_price[]"]');
+
+  // Si el select trae data-selected desde el servidor, úsalo
+  const dataSelected = sel.getAttribute('data-selected');
+  fillSelect(sel, dataSelected);
+
+  // Inicializa hidden con el valor actual
+  hid.value = sel.value || "";
+
+  sel.addEventListener('change', () => {
+    const id = parseInt(sel.value || 0);
+    hid.value = id || "";
+    if (id){
+      const p = PRODUCTS.find(x => x.id === id);
+      if (p){
+        if (!desc.value) desc.value = p.name;
+        prc.value = Number(p.price).toFixed(2);
+        recalcRow(row);
+        recalcAll();
+      }
+    } else {
+      // Sin catálogo
+      if (!desc.value) desc.value = "";
+    }
+  });
+
+  [qty, prc].forEach(inp => inp.addEventListener('input', () => { recalcRow(row); recalcAll(); }));
+
+  const delBtn = row.querySelector('.btn-del');
+  if (delBtn){
+    delBtn.addEventListener('click', () => {
+      row.remove();          // al no enviarse, el backend NO recrea ese ítem
+      recalcAll();
+    });
+  }
+
+  recalcRow(row);
+}
+
+// Agregar nueva fila
+function addRow(prefill){
+  const tpl = document.getElementById('row-template');
+  const row = tpl.cloneNode(true);
+  row.id = "";
+  row.classList.remove('d-none');
+  document.getElementById('items-body').appendChild(row);
+
+  // Si viene prefill, setéalo antes de bindRow
+  if (prefill){
+    const sel = row.querySelector('.item-product');
+    if (prefill.product_id) sel.setAttribute('data-selected', prefill.product_id);
+    row.querySelector('input[name="item_description[]"]').value = prefill.description || '';
+    row.querySelector('input[name="item_qty[]"]').value        = prefill.qty != null ? prefill.qty : '1.00';
+    row.querySelector('input[name="item_price[]"]').value      = prefill.price != null ? prefill.price : '0.00';
+  }
+
+  bindRow(row);
+  recalcAll();
+}
+
+// --- Cargar catálogo y enlazar todas las filas existentes ---
+fetch("{{ url_for('products.api_products') }}")
+  .then(r => r.json())
+  .then(data => {
+    PRODUCTS = data || [];
+
+    // Enlazar filas existentes renderizadas por el servidor
+    document.querySelectorAll('#items-body .item-row:not(#row-template)').forEach(bindRow);
+
+    recalcAll();
+
+    // Si estamos creando y no hay filas, crea una por defecto
+    const hasRows = document.querySelectorAll('#items-body .item-row:not(#row-template)').length > 0;
+    if (!hasRows) addRow();
+  });
+
+// Botón agregar
+document.getElementById('btn-add').addEventListener('click', () => addRow());
+</script>
+{% endblock %}

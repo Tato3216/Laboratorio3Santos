@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h1 class="h3">Cotizaciones</h1>
+  <div class="d-flex gap-2">
+    <form class="d-flex" method="get">
+      <select class="form-select me-2" name="status">
+        <option value="">Todas</option>
+        {% for s in ['borrador','enviada','aceptada','rechazada','vencida'] %}
+          <option value="{{ s }}" {% if status==s %}selected{% endif %}>{{ s|capitalize }}</option>
+        {% endfor %}
+      </select>
+      <input class="form-control me-2" type="search" placeholder="Buscar cliente..." name="q" value="{{ q }}">
+      <button class="btn btn-outline-primary" type="submit">Filtrar</button>
+    </form>
+    <a class="btn btn-primary" href="{{ url_for('quotes.create_quote') }}">Nueva cotización</a>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-striped align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Status</th>
+        <th>Vigencia</th>
+        <th>Total (Q)</th>
+        <th>Creada</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in pagination.items %}
+        <tr>
+          <td>{{ q.id }}</td>
+          <td>{{ q.client.full_name() }}</td>
+          <td>{{ q.status|capitalize }}</td>
+          <td>
+            {% if q.valid_until %}
+              {{ q.valid_until.strftime('%Y-%m-%d') }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td>{{ '%.2f'|format(q.total) }}</td>
+          <td>{{ q.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td class="d-flex flex-wrap gap-1">
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('quotes.edit_quote', quote_id=q.id) }}">Editar</a>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('quotes.quote_pdf', quote_id=q.id) }}">PDF</a>
+
+            <form action="{{ url_for('quotes.quote_to_order', quote_id=q.id) }}" method="post"
+                  onsubmit="return confirm('¿Convertir esta cotización a pedido?');">
+              <button class="btn btn-sm btn-success" type="submit">A pedido</button>
+            </form>
+
+            <form action="{{ url_for('quotes.delete_quote', quote_id=q.id) }}" method="post"
+                  onsubmit="return confirm('¿Eliminar cotización #{{ q.id }}?');">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="text-center text-muted">Sin cotizaciones</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav>
+  <ul class="pagination">
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('quotes.list_quotes', q=q, status=status, page=pagination.prev_num) }}">Anterior</a>
+    </li>
+    {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('quotes.list_quotes', q=q, status=status, page=p) }}">{{ p }}</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('quotes.list_quotes', q=q, status=status, page=pagination.next_num) }}">Siguiente</a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

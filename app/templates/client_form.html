@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1 class="h3">{{ 'Editar' if client else 'Nuevo' }} cliente</h1>
+  <form method="post" class="mt-3">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Nombre</label>
+        <input name="first_name" class="form-control" value="{{ client.first_name if client else '' }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Apellido</label>
+        <input name="last_name" class="form-control" value="{{ client.last_name if client else '' }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input name="email" type="email" class="form-control" value="{{ client.email if client else '' }}" required autocomplete="email">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Teléfono</label>
+        <input name="phone" class="form-control" value="{{ client.phone if client else '' }}" inputmode="tel" autocomplete="tel">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Empresa</label>
+        <input name="company" class="form-control" value="{{ client.company if client else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Dirección</label>
+        <input name="address" class="form-control" value="{{ client.address if client else '' }}" autocomplete="street-address">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notas</label>
+        <textarea name="notes" rows="4" class="form-control">{{ client.notes if client else '' }}</textarea>
+      </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Guardar</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for('main.list_clients') }}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}
